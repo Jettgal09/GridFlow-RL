@@ -1,0 +1,11 @@
+{
+  "seed": 0,
+  "variant": "neighbour",
+  "timesteps": 5000000,
+  "out": "runs",
+  "dt": 5,
+  "gamma": 0.97,
+  "reward": "queue",
+  "share": 0.0,
+  "grids": "3x3,3x3,3x3,3x3,2x2,2x2,2x2,2x2"
+}

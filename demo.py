@@ -34,9 +34,9 @@ def build(name, model_path):
     if name == "actuated":
         return Actuated(5, 40, 4), "Vehicle-actuated"
     if name == "max_pressure":
-        return MaxPressure(20), "Max-pressure"
+        return MaxPressure(20, use_shield=True), "Max-pressure + shield"
     from gridflow.policy_io import load_controller
-    return load_controller(model_path), "Shared RL policy (neighbour-aware)"
+    return load_controller(model_path, use_shield=True), "GridFlow-RL (shared RL policy + shield)"
 
 
 def main():
@@ -45,7 +45,7 @@ def main():
     ap.add_argument("--scenario", default="surge", choices=S.EVAL_SCENARIOS)
     ap.add_argument("--left", default="actuated")
     ap.add_argument("--right", default="rl")
-    ap.add_argument("--model", default="runs/neighbour_s0/model.zip")
+    ap.add_argument("--model", default="runs/neighbour_s3/model.zip")  # median training seed
     ap.add_argument("--seed", type=int, default=10_000)
     ap.add_argument("--start", type=int, default=0, help="fast-forward to this second before showing")
     ap.add_argument("--gif", default=None)

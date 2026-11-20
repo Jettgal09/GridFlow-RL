@@ -21,21 +21,21 @@ from gridflow import scenarios as S
 from gridflow.controllers import Actuated, FixedTime, MaxPressure, run_episode
 from gridflow.sim import Network
 
-COLOR = {"Fixed-time": "#9aa0a6", "Actuated": "#f2a541", "Max-pressure": "#d9534f",
-         "RL (neighbour-aware)": "#1f6fd1"}
+COLOR = {"Fixed-time": "#9aa0a6", "Actuated": "#f2a541", "Max-pressure + shield": "#f08a85",
+         "GridFlow-RL (ours)": "#1f4fbf"}
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="runs/neighbour_s0/model.zip")
+    ap.add_argument("--model", default="runs/neighbour_s3/model.zip")  # median training seed
     ap.add_argument("--grid", type=int, default=3)
     ap.add_argument("--seed", type=int, default=10_002)
     ap.add_argument("--out", default="results/fig_timeseries.png")
     args = ap.parse_args()
 
     ctrls = {"Fixed-time": lambda: FixedTime(15), "Actuated": lambda: Actuated(5, 40, 4),
-             "Max-pressure": lambda: MaxPressure(20),
-             "RL (neighbour-aware)": lambda: load_controller(args.model)}
+             "Max-pressure + shield": lambda: MaxPressure(20, use_shield=True),
+             "GridFlow-RL (ours)": lambda: load_controller(args.model, use_shield=True)}
     scen = ["rush_hour", "surge", "incident"]
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.2))
     for ax, sc in zip(axes, scen):

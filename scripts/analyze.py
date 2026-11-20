@@ -62,6 +62,7 @@ def per_episode(df):
 
 def main():
     df = pd.read_csv(os.path.join(OUT, "eval.csv"))
+    df["controller"] = df.controller.replace({"fixed_15s": "fixed_time"})
     ctrls = [c for c in ORDER if c in df.controller.unique()]
     ep = per_episode(df)
     grids = sorted(df.grid.unique(), key=lambda g: int(g.split("x")[0]))
@@ -163,15 +164,14 @@ def main():
     axes[0].legend(fontsize=8, ncol=2)
     fig.tight_layout(); fig.savefig(os.path.join(OUT, "fig_scenarios.png"), dpi=150); plt.close(fig)
 
-    # ---- Figure 2: generalisation across grid sizes (median over scenarios to resist outliers)
+    # ---- Figure 2: generalisation across grid sizes (mean over all scenarios and test seeds)
     fig, ax = plt.subplots(figsize=(7, 4.4))
     gx = [int(g.split("x")[0]) for g in grids]
     for c in ctrls:
-        m = [ep[(ep.controller == c) & (ep.grid == g)].groupby("scenario")[METRIC].mean().median() for g in grids]
+        m = [ep[(ep.controller == c) & (ep.grid == g)][METRIC].mean() for g in grids]
         ax.plot(gx, m, "o-", label=LABEL[c], color=COLOR[c], lw=2)
-    ax.axvspan(1.5, 3.5, color="#1f6fd1", alpha=0.07)
-    ax.text(2.5, ax.get_ylim()[1] * 0.95, "training sizes", ha="center", va="top", fontsize=9, color="#1f6fd1")
-    ax.set_xticks(gx, grids); ax.set_xlabel("grid size"); ax.set_ylabel("median over scenarios of wait per vehicle (s)")
+    ax.axvspan(1.5, 3.5, color="#1f6fd1", alpha=0.07, label="training sizes")
+    ax.set_xticks(gx, grids); ax.set_xlabel("grid size"); ax.set_ylabel("mean wait per vehicle over all scenarios (s)"); ax.set_yscale("log")
     ax.set_title("One policy, any grid: zero-shot transfer to larger networks")
     ax.grid(alpha=0.3); ax.legend(fontsize=8)
     fig.tight_layout(); fig.savefig(os.path.join(OUT, "fig_grid_sizes.png"), dpi=150); plt.close(fig)
@@ -185,9 +185,11 @@ def main():
             d = pd.read_csv(p)
             d = d[d.grid_nodes == 9]
             ax.plot(d.timesteps / 1e6, d.wait_per_vehicle_s.rolling(40, min_periods=5).median(),
-                    color=CURVE[v], alpha=0.7, lw=1.2)
+                    color=CURVE[v], alpha=0.8, lw=1.2, ls="-" if v == "neighbour" else "--")
         for v in ("neighbour", "local"):
-            ax.plot([], [], color=CURVE[v], label={"neighbour": "with neighbour view", "local": "local only"}[v])
+            ax.plot([], [], color=CURVE[v], ls="-" if v == "neighbour" else "--",
+                    label={"neighbour": "with neighbour view", "local": "local only"}[v])
+        ax.set_ylim(10, 60)
         ax.set_xlabel("training samples (millions)"); ax.set_ylabel("wait per vehicle (s), 3x3 training episodes")
         ax.set_title("Learning curves (one line per training seed; random demand)")
         ax.grid(alpha=0.3); ax.legend()
