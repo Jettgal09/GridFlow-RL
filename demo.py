@@ -25,6 +25,7 @@ from gridflow.render import Renderer, draw_hud
 from gridflow.sim import Network
 
 HUD_H = 110
+SCALE = {2: (8, 9), 3: (7, 8), 4: (5, 6), 5: (4, 5)}  # (cell px, lane px) so two panels fit a laptop screen
 
 
 def build(name, model_path):
@@ -60,7 +61,7 @@ def main():
         net = Network(args.grid, args.grid, S.make(args.scenario), seed=args.seed)
         ctrl, title = build(name, args.model)
         ctrl.reset(net)
-        sides.append((net, ctrl, title, Renderer(net, cell_px=5 if args.grid <= 4 else 3)))
+        sides.append((net, ctrl, title, Renderer(net, *SCALE.get(args.grid, (3, 4)))))
     rw, rh = sides[0][3].width, sides[0][3].height
     gap = 16
     W, H = 2 * rw + gap, rh + HUD_H + 30
