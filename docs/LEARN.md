@@ -161,9 +161,10 @@ controller and by 46 % against a fixed timer. More importantly, every classical
 method has a situation where it falls apart — fixed-time on a busy main road,
 max-pressure in a surge — while ours stays within 3 % of the best on average."
 
-**Where it wins**: incidents (about 25–30 % less waiting than any other method),
-busy main roads, light traffic, surges on the grid sizes it trained on, and on
-unseen 4×4 grids in every scenario.
+**Where it wins**: incidents (17–32 % less waiting than the best other method,
+depending on grid size), busy main roads up to 4×4, light traffic at every size,
+surges up to 4×4, and on the unseen 4×4 grid in every scenario except perfectly
+even traffic.
 
 **Where it loses (say this before they ask)**:
 - Perfectly even traffic: a tuned 15-s fixed timer is 1–3 s better. With
