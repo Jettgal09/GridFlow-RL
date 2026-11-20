@@ -34,13 +34,17 @@ PRESSURE_SCALE = 1.0
 
 class SharedPolicyVecEnv(VecEnv):
     def __init__(self, grid_sizes=((3, 3),) * 4 + ((2, 2),) * 4, episode_len=1800,
-                 decision_interval=10, downstream=True, seed=0, scenario="train", reward="queue"):
+                 decision_interval=10, downstream=True, seed=0, scenario="train", reward="queue",
+                 share=0.0):
         self.sims = [Network(r, c, S.make(scenario)) for r, c in grid_sizes]
         self.offsets = np.cumsum([0] + [s.n_nodes for s in self.sims])
         self.episode_len = episode_len
         self.dt = decision_interval
         self.downstream = downstream
         self.reward = reward
+        self.share = share
+        self.nbrs = [[sorted({n for n in sim.upstream[i] + sim.downstream[i] if n is not None})
+                      for i in range(sim.n_nodes)] for sim in self.sims]
         self._seed_counter = seed * 1_000_003
         self._actions = None
         self.ep_returns = np.zeros(self.offsets[-1])
@@ -83,6 +87,9 @@ class SharedPolicyVecEnv(VecEnv):
                 else:  # "pressure" (PressLight)
                     for i in range(sim.n_nodes):
                         q[i] += node_pressure(sim, i) / PRESSURE_SCALE
+            if self.share > 0:
+                nb = np.array([q[js].mean() if js else 0.0 for js in self.nbrs[k]])
+                q = q + self.share * nb
             r = -(q / self.dt)
             done = sim.t >= self.episode_len
             obs = self._obs(k)

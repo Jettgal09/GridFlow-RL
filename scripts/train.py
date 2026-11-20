@@ -54,6 +54,8 @@ def main():
     ap.add_argument("--dt", type=int, default=5, help="seconds between decisions")
     ap.add_argument("--gamma", type=float, default=0.97)
     ap.add_argument("--reward", choices=["queue", "pressure"], default="queue")
+    ap.add_argument("--share", type=float, default=0.0,
+                    help="weight of neighbours' mean queue in each junction's reward (cooperation)")
     ap.add_argument("--grids", default="3x3,3x3,3x4,2x4,2x2,2x2",
                     help="training grids (rows x cols); 4x4 and larger are kept for zero-shot testing")
     args = ap.parse_args()
@@ -66,7 +68,7 @@ def main():
 
     grids = [tuple(int(x) for x in g.split("x")) for g in args.grids.split(",")]
     env = SharedPolicyVecEnv(grid_sizes=grids, downstream=(args.variant == "neighbour"), seed=args.seed,
-                             decision_interval=args.dt, reward=args.reward)
+                             decision_interval=args.dt, reward=args.reward, share=args.share)
     model = PPO(
         "MlpPolicy", env,
         n_steps=128,            # 128 decisions x 52 junctions = 6656 samples per update

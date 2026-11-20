@@ -42,10 +42,11 @@ def load_config(path: str) -> dict:
     return {"variant": "neighbour", "dt": 10}
 
 
-def load_controller(path: str, name: str | None = None):
+def load_controller(path: str, name: str | None = None, use_shield: bool = False):
     """A PolicyController set up exactly as the model was trained (decision interval, inputs)."""
     from gridflow.controllers import PolicyController
     cfg = load_config(path)
     variant = cfg.get("variant", "neighbour")
     return PolicyController(load_policy(path), name=name or f"rl_{variant}",
-                            downstream=(variant == "neighbour"), interval=int(cfg.get("dt", 10)))
+                            downstream=(variant == "neighbour"), interval=int(cfg.get("dt", 10)),
+                            use_shield=use_shield)

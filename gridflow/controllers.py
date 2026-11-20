@@ -79,6 +79,28 @@ def node_features(net: Network, i: int, downstream: bool = True) -> list:
     return f
 
 
+def movable_lanes(net: Network, i: int, phase: int) -> int:
+    """Lanes served by `phase` at node i that have a car near the stop line which could actually cross."""
+    k = 0
+    for h in range(4):
+        if (h & 1) != phase:
+            continue
+        for ln in net.approach[i][h]:
+            if ln.pos and ln.pos[0] >= ln.length - NEAR_CELLS and not lane_blocked(net, ln):
+                k += 1
+    return k
+
+
+def shield(net: Network, i: int, proposed: int) -> int:
+    """
+    Safety shield: never hold a green that cannot move a single car while the
+    other phase could. Returns the phase to actually use.
+    """
+    if movable_lanes(net, i, proposed) == 0 and movable_lanes(net, i, 1 - proposed) > 0:
+        return 1 - proposed
+    return proposed
+
+
 def all_features(net: Network, downstream: bool = True) -> np.ndarray:
     return np.array([node_features(net, i, downstream) for i in range(net.n_nodes)],
                     dtype=np.float32)
@@ -186,25 +208,29 @@ class Actuated(Controller):
 class MaxPressure(Controller):
     """Every `interval` seconds, give green to the phase with the highest pressure."""
 
-    name = "max_pressure"
-
-    def __init__(self, interval: int = 5):
+    def __init__(self, interval: int = 5, use_shield: bool = False):
         self.interval = interval
+        self.use_shield = use_shield
+        self.name = "max_pressure+shield" if use_shield else "max_pressure"
 
     def decide(self, net):
         for i in range(net.n_nodes):
             p = phase_pressure(net, i)
             best = 0 if p[0] >= p[1] else 1
-            if p[best] > p[net.phase[i]]:
-                net.set_phase(i, best)
+            choice = best if p[best] > p[net.phase[i]] else net.phase[i]
+            if self.use_shield:
+                choice = shield(net, i, choice)
+            net.set_phase(i, choice)
 
 
 class PolicyController(Controller):
     """Runs a trained shared policy: the same network decides for every intersection."""
 
-    def __init__(self, model, name="rl_shared", downstream=True, interval=5, deterministic=True):
+    def __init__(self, model, name="rl_shared", downstream=True, interval=5, deterministic=True,
+                 use_shield=False):
         self.model = model
-        self.name = name
+        self.use_shield = use_shield
+        self.name = name + ("+shield" if use_shield else "")
         self.downstream = downstream
         self.interval = interval
         self.deterministic = deterministic
@@ -213,7 +239,10 @@ class PolicyController(Controller):
         obs = all_features(net, self.downstream)
         actions, _ = self.model.predict(obs, deterministic=self.deterministic)
         for i, a in enumerate(np.asarray(actions).reshape(-1)):
-            net.set_phase(i, int(a))
+            a = int(a)
+            if self.use_shield:
+                a = shield(net, i, a)
+            net.set_phase(i, a)
 
 
 # ----------------------------------------------------------------------------- runner
