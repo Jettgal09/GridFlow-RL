@@ -39,6 +39,7 @@ class CurveLogger(BaseCallback):
                              round(m["wait_per_vehicle_s"], 2), round(m["throughput_vph"], 1),
                              m["final_backlog"]])
         env.finished_episodes.clear()
+        self.f.flush()
         return True
 
     def _on_training_end(self):
@@ -49,15 +50,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--variant", choices=["neighbour", "local"], default="neighbour")
-    ap.add_argument("--timesteps", type=int, default=1_500_000)
+    ap.add_argument("--timesteps", type=int, default=5_000_000)
     ap.add_argument("--out", default="runs")
     ap.add_argument("--dt", type=int, default=5, help="seconds between decisions")
     ap.add_argument("--gamma", type=float, default=0.97)
     ap.add_argument("--reward", choices=["queue", "pressure"], default="queue")
     ap.add_argument("--share", type=float, default=0.0,
                     help="weight of neighbours' mean queue in each junction's reward (cooperation)")
-    ap.add_argument("--grids", default="3x3,3x3,3x4,2x4,2x2,2x2",
-                    help="training grids (rows x cols); 4x4 and larger are kept for zero-shot testing")
+    ap.add_argument("--grids", default="3x3,3x3,3x3,3x3,2x2,2x2,2x2,2x2",
+                    help="training grids (rows x cols); 4x4 and 6x6 are kept for zero-shot testing")
     args = ap.parse_args()
 
     torch.set_num_threads(1)

@@ -28,21 +28,23 @@ GRIDS = [(2, 2), (3, 3), (4, 4), (6, 6)]
 TEST_SEEDS = [10_000 + i for i in range(10)]
 
 # Tuned once on separate tuning seeds (500-502) across all scenarios on 3x3; see README.
+# The shield is also offered to max-pressure so the comparison stays fair.
 BASELINES = {
     "fixed_time": lambda: FixedTime(15),
     "actuated": lambda: Actuated(5, 40, 4),
     "max_pressure": lambda: MaxPressure(20),
+    "max_pressure+shield": lambda: MaxPressure(20, use_shield=True),
 }
 
 
 def make_controller(spec):
-    kind, arg = spec
+    kind, arg, use_shield = spec
     if kind == "baseline":
         return BASELINES[arg]()
     import torch
     from gridflow.policy_io import load_controller
     torch.set_num_threads(1)
-    return load_controller(arg)
+    return load_controller(arg, use_shield=use_shield)
 
 
 def job(task):
@@ -64,11 +66,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", default="runs")
     ap.add_argument("--out", default="results/eval.csv")
-    ap.add_argument("--workers", type=int, default=16)
+    ap.add_argument("--workers", type=int, default=20)
     args = ap.parse_args()
 
-    specs = [("baseline", k) for k in BASELINES]
-    specs += [("rl", p) for p in sorted(glob.glob(os.path.join(args.runs, "*_s*", "model.zip")))]
+    specs = [("baseline", k, False) for k in BASELINES]
+    for p in sorted(glob.glob(os.path.join(args.runs, "*_s*", "model.zip"))):
+        specs.append(("rl", p, True))            # the full method: shared policy + shield
+        if "neighbour" in p:
+            specs.append(("rl", p, False))       # ablation: no shield
     # one task per (controller, grid, scenario) for good load balancing
     tasks = [(sp, [g], [sc]) for sp in specs for g in GRIDS for sc in S.EVAL_SCENARIOS]
     print(f"{len(specs)} controllers x {len(GRIDS)} grids x {len(S.EVAL_SCENARIOS)} scenarios "

@@ -24,11 +24,18 @@ import pandas as pd
 from gridflow.scenarios import EVAL_SCENARIOS
 
 OUT = "results"
-ORDER = ["fixed_time", "actuated", "max_pressure", "rl_local", "rl_neighbour"]
+ORDER = ["fixed_time", "actuated", "max_pressure", "max_pressure+shield",
+         "rl_neighbour", "rl_local+shield", "rl_neighbour+shield"]
 LABEL = {"fixed_time": "Fixed-time", "actuated": "Actuated", "max_pressure": "Max-pressure",
-         "rl_local": "RL (local only)", "rl_neighbour": "RL (neighbour-aware)"}
+         "max_pressure+shield": "Max-pressure + shield",
+         "rl_neighbour": "RL, no shield", "rl_local+shield": "RL local-only + shield",
+         "rl_neighbour+shield": "GridFlow-RL (ours)"}
 COLOR = {"fixed_time": "#9aa0a6", "actuated": "#f2a541", "max_pressure": "#d9534f",
-         "rl_local": "#7fb3e6", "rl_neighbour": "#1f6fd1"}
+         "max_pressure+shield": "#f08a85", "rl_neighbour": "#9cc3ef",
+         "rl_local+shield": "#6aa0d8", "rl_neighbour+shield": "#1f4fbf"}
+MAIN = "rl_neighbour+shield"
+CURVE = {"neighbour": "#1f4fbf", "local": "#7fb3e6"}
+BASES = ["fixed_time", "actuated", "max_pressure", "max_pressure+shield"]
 SEEN = {"2x2", "3x3"}
 METRIC = "wait_per_vehicle_s"
 rng = np.random.default_rng(0)
@@ -76,38 +83,45 @@ def main():
                 row.append(f"**{s}**" if c == best else s)
             lines.append(f"| {sc} | " + " | ".join(row) + " |")
 
-    # ---- Table 2: paired difference RL(neighbour) vs best baseline per cell
-    if "rl_neighbour" in ctrls:
-        lines.append("\n## RL (neighbour-aware) vs the best classical controller in each cell\n")
-        lines.append("Paired difference in wait per vehicle (negative = RL better), bootstrap 95% CI.\n")
-        lines.append("| grid | scenario | best baseline | baseline | RL | diff | 95% CI | verdict |")
+    # ---- Table 2: paired difference ours vs best classical controller per cell
+    if MAIN in ctrls:
+        lines.append("\n## GridFlow-RL vs the best classical controller in each cell\n")
+        lines.append("Paired difference in wait per vehicle (negative = ours better), bootstrap 95% CI "
+                     "over the 10 test seeds. 'Best classical' is chosen per cell, after the fact — "
+                     "the strictest possible comparison.\n")
+        lines.append("| grid | scenario | best classical | classical | ours | diff | 95% CI | verdict |")
         lines.append("|---|---|---|---|---|---|---|---|")
         wins = losses = ties = 0
         for g in grids:
             for sc in EVAL_SCENARIOS:
                 cell = ep[(ep.grid == g) & (ep.scenario == sc)]
                 base = {c: cell[cell.controller == c].sort_values("test_seed")[METRIC].values
-                        for c in ["fixed_time", "actuated", "max_pressure"] if c in ctrls}
+                        for c in BASES if c in ctrls}
                 bb = min(base, key=lambda c: base[c].mean())
-                rl = cell[cell.controller == "rl_neighbour"].sort_values("test_seed")[METRIC].values
+                rl = cell[cell.controller == MAIN].sort_values("test_seed")[METRIC].values
                 d = rl - base[bb]
                 lo, hi = boot_ci(d)
-                verdict = "RL better" if hi < 0 else ("RL worse" if lo > 0 else "no clear difference")
+                verdict = "ours better" if hi < 0 else ("ours worse" if lo > 0 else "no clear difference")
                 wins += hi < 0; losses += lo > 0; ties += (lo <= 0 <= hi)
                 lines.append(f"| {g} | {sc} | {LABEL[bb]} | {base[bb].mean():.1f} | {rl.mean():.1f} | "
                              f"{d.mean():+.1f} | [{lo:+.1f}, {hi:+.1f}] | {verdict} |")
-        lines.append(f"\nRL clearly better in {wins}, clearly worse in {losses}, no clear difference in {ties} "
+        lines.append(f"\nOurs clearly better in {wins}, clearly worse in {losses}, no clear difference in {ties} "
                      f"of {wins + losses + ties} cells.\n")
 
-    # ---- Table 3: ablation
-    if {"rl_neighbour", "rl_local"} <= set(ctrls):
-        lines.append("\n## Ablation: does seeing downstream congestion help?\n")
-        lines.append("| grid | local only | neighbour-aware | change |")
-        lines.append("|---|---|---|---|")
+    # ---- Table 3: ablations
+    abl = [("rl_neighbour", "Remove the shield"), ("rl_local+shield", "Remove the neighbour view")]
+    if MAIN in ctrls:
+        lines.append("\n## Ablations: what does each ingredient contribute?\n")
+        lines.append("Mean wait per vehicle over all scenarios (s). Positive change = worse without it.\n")
+        lines.append("| grid | full method | " + " | ".join(n for _, n in abl) + " |")
+        lines.append("|---|---|" + "---|" * len(abl))
         for g in grids:
-            a = ep[(ep.grid == g) & (ep.controller == "rl_local")][METRIC].mean()
-            b = ep[(ep.grid == g) & (ep.controller == "rl_neighbour")][METRIC].mean()
-            lines.append(f"| {g} | {a:.1f} | {b:.1f} | {100 * (b - a) / a:+.1f}% |")
+            full = ep[(ep.grid == g) & (ep.controller == MAIN)][METRIC].mean()
+            row = [f"{full:.1f}"]
+            for c, _ in abl:
+                v = ep[(ep.grid == g) & (ep.controller == c)][METRIC].mean()
+                row.append(f"{v:.1f} ({100 * (v - full) / full:+.0f}%)")
+            lines.append(f"| {g} | " + " | ".join(row) + " |")
 
     # ---- Table 4: robustness across training seeds
     rl = df[df.controller.str.startswith("rl_")]
@@ -171,9 +185,9 @@ def main():
             d = pd.read_csv(p)
             d = d[d.grid_nodes == 9]
             ax.plot(d.timesteps / 1e6, d.wait_per_vehicle_s.rolling(40, min_periods=5).median(),
-                    color=COLOR[f"rl_{v}"], alpha=0.7, lw=1.2)
+                    color=CURVE[v], alpha=0.7, lw=1.2)
         for v in ("neighbour", "local"):
-            ax.plot([], [], color=COLOR[f"rl_{v}"], label=LABEL[f"rl_{v}"])
+            ax.plot([], [], color=CURVE[v], label={"neighbour": "with neighbour view", "local": "local only"}[v])
         ax.set_xlabel("training samples (millions)"); ax.set_ylabel("wait per vehicle (s), 3x3 training episodes")
         ax.set_title("Learning curves (one line per training seed; random demand)")
         ax.grid(alpha=0.3); ax.legend()
