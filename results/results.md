@@ -79,6 +79,18 @@ Paired difference in wait per vehicle (negative = ours better), bootstrap 95% CI
 Ours clearly better in 15, clearly worse in 7, no clear difference in 2 of 24 cells.
 
 
+## Robustness: no single classical controller is good everywhere
+
+For each of the 24 (grid, scenario) cells, wait divided by the best controller's wait in that cell (1.00 = best). 'Worst case' is the controller's worst cell.
+
+| controller | mean ratio | worst case | worst cell | cells where it is best |
+|---|---|---|---|---|
+| GridFlow-RL (ours) | 1.03 | 1.36x | 6x6 arterial | 15 |
+| Actuated | 1.31 | 1.60x | 4x4 uniform | 1 |
+| Max-pressure + shield | 1.33 | 2.34x | 6x6 surge | 1 |
+| Max-pressure | 1.58 | 5.19x | 4x4 surge | 2 |
+| Fixed-time | 2.19 | 10.30x | 2x2 arterial | 5 |
+
 ## Ablations: what does each ingredient contribute?
 
 Mean wait per vehicle over all scenarios (s). Positive change = worse without it.

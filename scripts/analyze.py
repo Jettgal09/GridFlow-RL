@@ -109,6 +109,20 @@ def main():
         lines.append(f"\nOurs clearly better in {wins}, clearly worse in {losses}, no clear difference in {ties} "
                      f"of {wins + losses + ties} cells.\n")
 
+    # ---- Table 2b: robustness — how far from the best controller in each cell?
+    deploy = [c for c in ["fixed_time", "actuated", "max_pressure", "max_pressure+shield", MAIN] if c in ctrls]
+    cellmean = ep[ep.controller.isin(deploy)].groupby(["grid", "scenario", "controller"])[METRIC].mean().unstack()
+    ratio = cellmean.div(cellmean.min(axis=1), axis=0)
+    lines.append("\n## Robustness: no single classical controller is good everywhere\n")
+    lines.append("For each of the 24 (grid, scenario) cells, wait divided by the best controller's wait in that "
+                 "cell (1.00 = best). 'Worst case' is the controller's worst cell.\n")
+    lines.append("| controller | mean ratio | worst case | worst cell | cells where it is best |")
+    lines.append("|---|---|---|---|---|")
+    for c in sorted(deploy, key=lambda c: ratio[c].mean()):
+        worst = ratio[c].idxmax()
+        lines.append(f"| {LABEL[c]} | {ratio[c].mean():.2f} | {ratio[c].max():.2f}x | {worst[0]} {worst[1]} | "
+                     f"{int((ratio[c] == 1.0).sum())} |")
+
     # ---- Table 3: ablations
     abl = [("rl_neighbour", "Remove the shield"), ("rl_local+shield", "Remove the neighbour view")]
     if MAIN in ctrls:
