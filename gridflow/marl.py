@@ -3,7 +3,7 @@ gridflow/marl.py — multi-agent training with ONE shared policy.
 
 IDEA
   Every junction is an agent. All agents use the same small neural network
-  (parameter sharing). Each agent sees only its own 16 features (its approaches
+  (parameter sharing). Each agent sees only its own 24 features (its approaches
   plus how full the roads it feeds are) and gets its own reward (minus its own
   queue). Because the input and output have the same shape at every junction,
   the trained network can be dropped onto a grid of any size — including sizes
@@ -25,20 +25,22 @@ from gymnasium import spaces
 from stable_baselines3.common.vec_env import VecEnv
 
 from gridflow import scenarios as S
-from gridflow.controllers import OBS_DIM, all_features, node_queue
+from gridflow.controllers import OBS_DIM, all_features, node_pressure, node_queue
 from gridflow.sim import Network
 
 REWARD_SCALE = 50.0  # queue of 50 stopped cars at a junction -> reward -1 per decision
+PRESSURE_SCALE = 1.0
 
 
 class SharedPolicyVecEnv(VecEnv):
     def __init__(self, grid_sizes=((3, 3),) * 4 + ((2, 2),) * 4, episode_len=1800,
-                 decision_interval=10, downstream=True, seed=0, scenario="train"):
+                 decision_interval=10, downstream=True, seed=0, scenario="train", reward="queue"):
         self.sims = [Network(r, c, S.make(scenario)) for r, c in grid_sizes]
         self.offsets = np.cumsum([0] + [s.n_nodes for s in self.sims])
         self.episode_len = episode_len
         self.dt = decision_interval
         self.downstream = downstream
+        self.reward = reward
         self._seed_counter = seed * 1_000_003
         self._actions = None
         self.ep_returns = np.zeros(self.offsets[-1])
@@ -75,9 +77,13 @@ class SharedPolicyVecEnv(VecEnv):
             q = np.zeros(sim.n_nodes)
             for _ in range(self.dt):
                 sim.step()
-                for i in range(sim.n_nodes):
-                    q[i] += node_queue(sim, i)
-            r = -(q / self.dt) / REWARD_SCALE
+                if self.reward == "queue":
+                    for i in range(sim.n_nodes):
+                        q[i] += node_queue(sim, i) / REWARD_SCALE
+                else:  # "pressure" (PressLight)
+                    for i in range(sim.n_nodes):
+                        q[i] += node_pressure(sim, i) / PRESSURE_SCALE
+            r = -(q / self.dt)
             done = sim.t >= self.episode_len
             obs = self._obs(k)
             infos = [{} for _ in range(sim.n_nodes)]

@@ -10,6 +10,7 @@ training episode). The FINAL model is kept — no best-checkpoint cherry-picking
 
 import argparse
 import csv
+import json
 import os
 import sys
 import time
@@ -50,20 +51,29 @@ def main():
     ap.add_argument("--variant", choices=["neighbour", "local"], default="neighbour")
     ap.add_argument("--timesteps", type=int, default=1_500_000)
     ap.add_argument("--out", default="runs")
+    ap.add_argument("--dt", type=int, default=5, help="seconds between decisions")
+    ap.add_argument("--gamma", type=float, default=0.97)
+    ap.add_argument("--reward", choices=["queue", "pressure"], default="queue")
+    ap.add_argument("--grids", default="3x3,3x3,3x4,2x4,2x2,2x2",
+                    help="training grids (rows x cols); 4x4 and larger are kept for zero-shot testing")
     args = ap.parse_args()
 
     torch.set_num_threads(1)
     out = os.path.join(args.out, f"{args.variant}_s{args.seed}")
     os.makedirs(out, exist_ok=True)
+    with open(os.path.join(out, "config.json"), "w") as f:
+        json.dump(vars(args), f, indent=2)
 
-    env = SharedPolicyVecEnv(downstream=(args.variant == "neighbour"), seed=args.seed)
+    grids = [tuple(int(x) for x in g.split("x")) for g in args.grids.split(",")]
+    env = SharedPolicyVecEnv(grid_sizes=grids, downstream=(args.variant == "neighbour"), seed=args.seed,
+                             decision_interval=args.dt, reward=args.reward)
     model = PPO(
         "MlpPolicy", env,
         n_steps=128,            # 128 decisions x 52 junctions = 6656 samples per update
-        batch_size=832,
+        batch_size=env.num_envs * 128 // 8,
         n_epochs=8,
         learning_rate=3e-4,
-        gamma=0.95,             # decisions every 10 s -> looks ~3 minutes ahead
+        gamma=args.gamma,       # 0.97 with 5 s decisions -> looks ~3 minutes ahead
         gae_lambda=0.95,
         ent_coef=0.01,
         clip_range=0.2,

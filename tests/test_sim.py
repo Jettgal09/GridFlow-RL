@@ -75,3 +75,21 @@ def test_deterministic():
     m1 = run_episode(Network(2, 2, S.make("rush_hour")), MaxPressure(10), seed=5, steps=900)
     m2 = run_episode(Network(2, 2, S.make("rush_hour")), MaxPressure(10), seed=5, steps=900)
     assert m1 == m2
+
+
+def test_features_shape_and_blocked_flag():
+    from gridflow.controllers import OBS_DIM, all_features, lane_blocked
+    net = Network(1, 2, Const(0.0))
+    net.reset(0)
+    full = net.approach[1][E][STRAIGHT]
+    for p in range(full.length):
+        full.pos.insert(0, p); full.vid.insert(0, net._new_vehicle())
+    src = net.approach[0][E][STRAIGHT]
+    vid = net._new_vehicle(); net.v_turns[vid] = [STRAIGHT] * 16
+    src.pos.append(src.length - 1); src.vid.append(vid)
+    assert lane_blocked(net, src)
+    f = all_features(net)
+    assert f.shape == (2, OBS_DIM) and f.min() >= 0 and f.max() <= 1
+    assert f[0, 12 + E] > 0          # junction 0 sees a blocked eastbound lane
+    assert f[0, 16 + E] > 0          # and sees the full road downstream
+    assert all_features(net, downstream=False)[0, 16:20].sum() == 0

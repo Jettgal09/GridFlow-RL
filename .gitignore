@@ -7,3 +7,5 @@ runs/tb/
 runs_pilot/
 runs/log_*.txt
 _*.py
+runs_pilot*/
+runs_pilot*.err

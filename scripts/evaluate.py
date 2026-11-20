@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pandas as pd
 
 from gridflow import scenarios as S
-from gridflow.controllers import Actuated, FixedTime, MaxPressure, PolicyController, run_episode
+from gridflow.controllers import Actuated, FixedTime, MaxPressure, run_episode
 from gridflow.sim import Network
 
 GRIDS = [(2, 2), (3, 3), (4, 4), (6, 6)]
@@ -40,11 +40,9 @@ def make_controller(spec):
     if kind == "baseline":
         return BASELINES[arg]()
     import torch
-    from stable_baselines3 import PPO
+    from gridflow.policy_io import load_controller
     torch.set_num_threads(1)
-    variant = os.path.basename(os.path.dirname(arg)).split("_s")[0]
-    model = PPO.load(arg, device="cpu")
-    return PolicyController(model, name=f"rl_{variant}", downstream=(variant == "neighbour"), interval=10)
+    return load_controller(arg)
 
 
 def job(task):

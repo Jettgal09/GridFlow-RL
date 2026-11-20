@@ -15,10 +15,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from stable_baselines3 import PPO
+from gridflow.policy_io import load_controller
 
 from gridflow import scenarios as S
-from gridflow.controllers import Actuated, FixedTime, MaxPressure, PolicyController, run_episode
+from gridflow.controllers import Actuated, FixedTime, MaxPressure, run_episode
 from gridflow.sim import Network
 
 COLOR = {"Fixed-time": "#9aa0a6", "Actuated": "#f2a541", "Max-pressure": "#d9534f",
@@ -33,10 +33,9 @@ def main():
     ap.add_argument("--out", default="results/fig_timeseries.png")
     args = ap.parse_args()
 
-    model = PPO.load(args.model, device="cpu")
     ctrls = {"Fixed-time": lambda: FixedTime(15), "Actuated": lambda: Actuated(5, 40, 4),
              "Max-pressure": lambda: MaxPressure(20),
-             "RL (neighbour-aware)": lambda: PolicyController(model)}
+             "RL (neighbour-aware)": lambda: load_controller(args.model)}
     scen = ["rush_hour", "surge", "incident"]
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.2))
     for ax, sc in zip(axes, scen):

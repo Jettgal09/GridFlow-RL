@@ -20,7 +20,7 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import pygame
 
 from gridflow import scenarios as S
-from gridflow.controllers import Actuated, FixedTime, MaxPressure, PolicyController
+from gridflow.controllers import Actuated, FixedTime, MaxPressure
 from gridflow.render import Renderer, draw_hud
 from gridflow.sim import Network
 
@@ -34,9 +34,8 @@ def build(name, model_path):
         return Actuated(5, 40, 4), "Vehicle-actuated"
     if name == "max_pressure":
         return MaxPressure(20), "Max-pressure"
-    from stable_baselines3 import PPO
-    model = PPO.load(model_path, device="cpu")
-    return PolicyController(model, name="rl"), "Shared RL policy (neighbour-aware)"
+    from gridflow.policy_io import load_controller
+    return load_controller(model_path), "Shared RL policy (neighbour-aware)"
 
 
 def main():
