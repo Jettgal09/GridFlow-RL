@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gridflow-rl"
+version = "1.0.0"
+description = "One shared, neighbour-aware RL policy that controls traffic signals on any grid size, tested against classical controllers under disruptions."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26",
+    "gymnasium>=1.2.3",
+    "stable-baselines3>=2.7.1",
+    "torch>=2.10.0",
+    "pygame>=2.6.1",
+    "matplotlib>=3.10",
+    "pandas>=2.2",
+    "setuptools>=70,<81",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["gridflow*"]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
